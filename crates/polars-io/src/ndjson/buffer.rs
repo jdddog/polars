@@ -101,8 +101,14 @@ impl Buffer<'_> {
                 match value {
                     Value::String(v) => buf.append_value(v),
                     Value::Static(StaticNode::Null) => buf.append_null(),
-                    // Forcibly convert to String using the Display impl.
-                    v => buf.append_value(format_pl_smallstr!("{}", ValueDisplay(v))),
+                    // Serialise to a JSON string
+                    v => {
+                        let value = match simd_json::to_string(v) {
+                            Ok(val) => val,
+                            Err(_) => polars_bail!(ComputeError: "cannot serialise '{}' to a JSON string", v),
+                        };
+                        buf.append_value(value);
+                    }
                 }
                 Ok(())
             },
