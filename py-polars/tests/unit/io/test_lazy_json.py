@@ -290,7 +290,7 @@ def test_scan_ndjson_raises_on_parse_error_nested() -> None:
     )
 
 
-def test_scan_ndjson_nested_as_string_escape_chars() -> None:
+def test_scan_ndjson_string_field_escape_chars() -> None:
     buf = rb"""
 {"field": {"new_line": "Hello World\n"}}
 {"field": {"carriage_return": "Hello World\r"}}
@@ -315,6 +315,38 @@ def test_scan_ndjson_nested_as_string_escape_chars() -> None:
                     r'{"back_slash":"\\api\\endpoint"}',
                     r'{"backspace":"\bHello World"}',
                     r'{"form_feed":"\fHello World"}',
+                ]
+            },
+        ),
+    )
+
+def test_scan_ndjson_struct_string_field_escape_chars():
+    buf = rb"""
+{"field": {"field": {"new_line": "Hello World\n"}}}
+{"field": {"field": {"carriage_return": "Hello World\r"}}}
+{"field": {"field": {"tab": "\tHello World"}}}
+{"field": {"field": {"double_quotes": "\"Hello World\""}}}
+{"field": {"field": {"back_slash": "\\api\\endpoint"}}}
+{"field": {"field": {"backspace": "\bHello World"}}}
+{"field": {"field": {"form_feed": "\fHello World"}}}
+"""
+
+    df = pl.scan_ndjson(buf, schema={"field": pl.Struct({
+        "field": pl.String
+    })}).collect()
+
+    assert_frame_equal(
+        df,
+        pl.DataFrame(
+            {
+                "field": [
+                    {"field": r'{"new_line":"Hello World\n"}'},
+                    {"field": r'{"carriage_return":"Hello World\r"}'},
+                    {"field": r'{"tab":"\tHello World"}'},
+                    {"field": r'{"double_quotes":"\"Hello World\""}'},
+                    {"field": r'{"back_slash":"\\api\\endpoint"}'},
+                    {"field": r'{"backspace":"\bHello World"}'},
+                    {"field": r'{"form_feed":"\fHello World"}'}
                 ]
             },
         ),

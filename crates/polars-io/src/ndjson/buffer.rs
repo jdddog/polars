@@ -8,7 +8,6 @@ use polars_core::prelude::*;
 use polars_time::prelude::string::Pattern;
 #[cfg(any(feature = "dtype-datetime", feature = "dtype-date"))]
 use polars_time::prelude::string::infer::{DatetimeInfer, TryFromWithUnit, infer_pattern_single};
-use polars_utils::format_pl_smallstr;
 use simd_json::{BorrowedValue as Value, KnownKey, StaticNode};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -285,7 +284,13 @@ fn deserialize_all<'a>(
         DataType::String => {
             return Ok(match json {
                 Value::String(s) => AnyValue::StringOwned(s.as_ref().into()),
-                v => AnyValue::StringOwned(format_pl_smallstr!("{}", ValueDisplay(v))),
+                v => {
+                    let value = match simd_json::to_string(v) {
+                        Ok(val) => val,
+                        Err(_) => polars_bail!(ComputeError: "cannot serialise '{}' to a JSON string", v),
+                    };
+                    AnyValue::StringOwned(value.into())
+                }
             });
         },
         dt if dt.is_primitive_numeric() => {
